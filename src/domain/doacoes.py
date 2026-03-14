@@ -7,3 +7,4 @@ class Doacao():
         self.data_doacao = data_doacao
         self.motivo_recusa = motivo_recusa
         self.status_atual = status_atual
+        self.id = id

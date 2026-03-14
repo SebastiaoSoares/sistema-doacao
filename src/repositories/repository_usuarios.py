@@ -24,13 +24,11 @@ class Repo_usuario(Repo):
                 query = text ("""INSERT INTO usuarios (nome, email, senha, endereco, status, identificador, tipo_perfil)
                             VALUES (:nome, :email, :senha, :endereco, :status, :identificador, :tipo_perfil)
                             ON CONFLICT (id) DO NOTHING""")
-                
                 conexao.execute(query, {"nome" : usuario.nome, "email" : usuario.email, "senha" : usuario.senha, "endereco" : usuario.endereco, "status" : usuario.status, "identificador" : usuario.identificador, "tipo_perfil" : usuario.tipo_perfil})
-
                 conexao.commit()
                 conexao.close()
             except Exception as erro:
-                print(f"Não foi possível realizar o cadastro.\nErro: {erro}")
+                print(f"Não foi possível realizar o cadastro.")
             return "Usuário cadastrado"
         else:
             return "Não foi possível conectar"

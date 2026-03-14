@@ -32,11 +32,11 @@ class Tabela():
         self.usuarios = Table('usuarios', self.metadata,
             Column('id', Integer, primary_key=True, autoincrement=True),
             Column('nome', String(70)),
-            Column('email', String(70)),
+            Column('email', String(70), unique=True),
             Column('senha', String(70)),
             Column('endereco', String(70)),
             Column('status', String(40)),
-            Column('identificador', String(40)), # CPF ou CNPJ
+            Column('identificador', String(40), unique=True), # CPF ou CNPJ
             Column('tipo_perfil', String(40))
         )
 
@@ -64,7 +64,7 @@ class Tabela():
             Column('id_categoria', Integer, ForeignKey('itensCategoria.id')),
             Column('descricao', String(255)),
             Column('unidade_medida', String(50))
-        ) #Doacao
+        )
 
             # Distribuição
         self.distribuicoes = Table('distribuicoes', self.metadata,

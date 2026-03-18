@@ -23,10 +23,17 @@
             body.sidebar-collapsed #mainContent { margin-left: 5rem !important; }
             body.sidebar-collapsed .hide-on-collapse { opacity: 0; display: none !important; }
             body.sidebar-collapsed .center-on-collapse { justify-content: center !important; padding-left: 0; padding-right: 0; }
-            /* Ajuste de espaço para o coração e o menu não se esmagarem quando a barra encolher */
             body.sidebar-collapsed #sidebarTopBar { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
         }
     </style>
+
+    <script>
+        // Se não houver token (mesmo fake) salva no localStorage, manda pro login
+        // Se quiser testar livremente sem login, basta comentar o if abaixo
+        if (!localStorage.getItem('access_token')) {
+            window.location.href = 'login.html';
+        }
+    </script>
 </head>
 <body class="bg-gray-50 overflow-x-hidden">
 
@@ -81,7 +88,7 @@
     <nav class="p-3 mt-2 flex-grow overflow-y-auto overflow-x-hidden scrollbar-hide" id="sidebarMenu"></nav>
     
     <div class="p-3 mt-auto border-t border-gray-100">
-        <button class="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 text-gray-700 hover:text-red-600 transition-all duration-200 group center-on-collapse" id="logoutBtn">
+        <button class="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 text-gray-700 hover:text-red-600 transition-all duration-200 group center-on-collapse" id="logoutBtn" onclick="localStorage.removeItem('access_token'); window.location.href='login.html'">
             <i data-lucide="log-out" class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-red-600 transition-colors"></i>
             <span class="text-sm font-medium whitespace-nowrap hide-on-collapse">Sair da Conta</span>
         </button>
@@ -102,11 +109,11 @@
                         <span class="font-bold text-base text-gray-800 tracking-tight">Doar+</span>
                     </div>
                     <h1 class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 truncate max-w-[120px]">
-                        Fundação Esperança
+                        Sistema de Gestão
                     </h1>
                 </div>
 
-                <h1 class="hidden lg:block text-xl font-bold text-gray-800">Fundação Esperança</h1>
+                <h1 class="hidden lg:block text-xl font-bold text-gray-800">Painel de Controle</h1>
             </div>
 
             <div class="flex items-center gap-3 lg:gap-5 flex-shrink-0">
@@ -129,10 +136,10 @@
                 </div>
 
                 <div class="flex items-center gap-3 cursor-pointer pl-3 lg:pl-4 border-l border-gray-200" id="profileBtn">
-                    <div class="w-8 h-8 lg:w-9 lg:h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-sm text-sm lg:text-base flex-shrink-0">A</div>
+                    <div class="w-8 h-8 lg:w-9 lg:h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-sm text-sm lg:text-base flex-shrink-0">U</div>
                     <div class="hidden md:block">
-                        <p class="text-sm font-bold text-gray-800 leading-tight truncate w-24">Administrador</p>
-                        <p class="text-xs text-gray-500">Gestão Global</p>
+                        <p class="text-sm font-bold text-gray-800 leading-tight truncate w-24">Usuário Logado</p>
+                        <p class="text-xs text-gray-500">Gestor</p>
                     </div>
                 </div>
             </div>

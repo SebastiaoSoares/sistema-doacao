@@ -1,5 +1,5 @@
+import { api } from '../api.js';
 import { showToast } from '../utils/helpers.js';
-import { mockData } from '../data/mockData.js';
 
 // Modal padrão (com botão de salvar)
 function createModal(title, content, onSave) {
@@ -17,7 +17,7 @@ function createModal(title, content, onSave) {
                         <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium">
                             Cancelar
                         </button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm flex items-center gap-2">
                             Salvar
                         </button>
                     </div>
@@ -57,22 +57,12 @@ export function openNovaDoacaoModal() {
     const content = `
         <div class="space-y-4 text-left">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Doador</label>
-                <input type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow">
+                <label class="block text-sm font-medium text-gray-700 mb-1">ID do Usuário (Doador)</label>
+                <input type="number" name="id_usuario" required min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Telefone / Contato</label>
-                <input type="text" placeholder="(00) 00000-0000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Categoria da Doação</label>
-                <select required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white">
-                    <option value="">Selecione uma categoria</option>
-                    <option value="Alimentos não perecíveis">Alimentos não perecíveis</option>
-                    <option value="Roupas e Calçados">Roupas e Calçados</option>
-                    <option value="Higiene Pessoal">Higiene Pessoal</option>
-                    <option value="Outros">Outros</option>
-                </select>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                <input type="text" name="descricao" required placeholder="Ex: Doação de roupas de inverno" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow">
             </div>
         </div>
     `;
@@ -80,30 +70,39 @@ export function openNovaDoacaoModal() {
 }
 
 export async function salvarNovaDoacao(form) {
-    const inputs = form.querySelectorAll('input');
-    const selects = form.querySelectorAll('select');
-    
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = 'A guardar...';
-    submitBtn.disabled = true;
-
-    const payload = {
-        id_usuario: 1,
-        descricao: inputs[0].value,
-        status_doacao: "Recebida",
-        data_doacao: new Date().toISOString().split('T')[0]
-    };
+    const btn = form.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Salvando...';
+    btn.disabled = true;
 
     try {
+        const payload = {
+            id_usuario: parseInt(form.querySelector('[name="id_usuario"]').value),
+            descricao: form.querySelector('[name="descricao"]').value,
+            status_doacao: "Recebida",
+            data_doacao: new Date().toISOString().split('T')[0]
+        };
+
         await api.criarDoacao(payload);
-        window.showToast('Doação guardada com sucesso!', 'success');
-        form.closest('.fixed').remove(); // Fecha o modal
-        if (window.carregarConteudoGlobal) window.carregarConteudoGlobal(); // Recarrega a tabela atualizada
-    } catch (erro) {
-        window.showToast('Falha ao contactar o servidor.', 'error');
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
+        showToast('Doação salva com sucesso!', 'success');
+        form.closest('.fixed').remove();
+        if (window.mudarView) window.mudarView('doacoes');
+    } catch (error) {
+        showToast(error.message || 'Erro ao salvar doação.', 'error');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+export async function deletarDoacao(id) {
+    if (!confirm('Tem certeza que deseja excluir esta doação?')) return;
+    try {
+        await api.deletarDoacao(id);
+        showToast('Doação excluída com sucesso!', 'success');
+        if (window.mudarView) window.mudarView('doacoes');
+    } catch (error) {
+        showToast('Erro ao excluir: verifique dependências (itens doados).', 'error');
     }
 }
 
@@ -112,56 +111,44 @@ export function openNovoBeneficiarioModal() {
     const content = `
         <div class="space-y-4 text-left">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo / Instituição</label>
-                <input type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-                    <select required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                        <option value="Física">Pessoa Física</option>
-                        <option value="Jurídica">Pessoa Jurídica</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Documento</label>
-                    <input type="text" required placeholder="NIF/BI/CPF" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Contacto</label>
-                    <input type="text" required placeholder="(00) 00000-0000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Dependentes</label>
-                    <input type="number" required min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ID do Usuário (Pré-cadastrado)</label>
+                <input type="number" name="id_usuario" required min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <p class="text-xs text-gray-500 mt-1">O usuário deve existir na tabela de usuários.</p>
             </div>
         </div>
     `;
-    createModal('Cadastrar Novo Beneficiário', content, 'window.salvarNovoBeneficiario');
+    createModal('Vincular Beneficiário', content, 'window.salvarNovoBeneficiario');
 }
 
-export function salvarNovoBeneficiario(form) {
-    const inputs = form.querySelectorAll('input');
-    const select = form.querySelector('select');
-    
-    const novoBeneficiario = {
-        id: "BEN-" + Math.floor(Math.random() * 1000).toString().padStart(3, '0'),
-        nome: inputs[0].value,
-        tipo: select.value,
-        documento: inputs[1].value,
-        contato: inputs[2].value,
-        dependentes: parseInt(inputs[3].value),
-        dataCadastro: new Date().toISOString().split('T')[0],
-        status: "Ativa"
-    };
-    
-    mockData.beneficiarios.unshift(novoBeneficiario);
-    showToast('Beneficiário cadastrado com sucesso!', 'success');
-    form.closest('.fixed').remove();
-    if(window.carregarConteudoGlobal) window.carregarConteudoGlobal();
+export async function salvarNovoBeneficiario(form) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
+    try {
+        const payload = {
+            id_usuario: parseInt(form.querySelector('[name="id_usuario"]').value),
+            data_cadastro_beneficiario: new Date().toISOString().split('T')[0]
+        };
+        
+        await api.vincularBeneficiario(payload);
+        showToast('Beneficiário vinculado com sucesso!', 'success');
+        form.closest('.fixed').remove();
+        if(window.mudarView) window.mudarView('beneficiarios');
+    } catch (error) {
+        showToast('Erro: Verifique se o ID do usuário existe.', 'error');
+        btn.disabled = false;
+    }
+}
+
+export async function deletarBeneficiario(id) {
+    if (!confirm('Tem certeza que deseja desvincular este beneficiário?')) return;
+    try {
+        await api.deletarBeneficiario(id);
+        showToast('Beneficiário removido com sucesso!', 'success');
+        if (window.mudarView) window.mudarView('beneficiarios');
+    } catch (error) {
+        showToast('Erro ao remover beneficiário.', 'error');
+    }
 }
 
 // === ESTOQUE (ITENS E MOVIMENTAÇÃO) ===
@@ -170,100 +157,114 @@ export function openNovoItemModal() {
         <div class="space-y-4 text-left">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Item</label>
-                <input type="text" required placeholder="Ex: Arroz Agulhinha 5kg" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" name="nome" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                <select required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                    <option value="Alimentos">Alimentos</option>
-                    <option value="Roupas e Calçados">Roupas e Calçados</option>
-                    <option value="Higiene Pessoal">Higiene Pessoal</option>
-                    <option value="Outros">Outros</option>
-                </select>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                <input type="text" name="descricao" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Quantidade Inicial</label>
-                    <input type="number" required min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ID Categoria</label>
+                    <input type="number" name="id_categoria" required min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Unidade (ex: un, kg)</label>
-                    <input type="text" required placeholder="un" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <input type="text" name="unidade" required placeholder="un" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
             </div>
         </div>
     `;
-    createModal('Adicionar Novo Item ao Estoque', content, 'window.salvarNovoItem');
+    createModal('Cadastrar Novo Item', content, 'window.salvarNovoItem');
 }
 
-export function salvarNovoItem(form) {
-    const inputs = form.querySelectorAll('input');
-    const select = form.querySelector('select');
-    const qtd = parseInt(inputs[1].value);
-    
-    const novoItem = {
-        id: "ITEM-" + Math.floor(Math.random() * 1000).toString().padStart(3, '0'),
-        nome: inputs[0].value,
-        categoria: select.value,
-        quantidade: qtd,
-        unidade: inputs[2].value,
-        status: qtd > 10 ? "Em Estoque" : (qtd > 0 ? "Baixo Estoque" : "Esgotado")
-    };
-    
-    mockData.estoque.unshift(novoItem);
-    showToast('Item adicionado ao estoque!', 'success');
-    form.closest('.fixed').remove();
-    if(window.carregarConteudoGlobal) window.carregarConteudoGlobal();
+export async function salvarNovoItem(form) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
+    try {
+        const payload = {
+            id_categoria_item: parseInt(form.querySelector('[name="id_categoria"]').value),
+            nome: form.querySelector('[name="nome"]').value,
+            descricao: form.querySelector('[name="descricao"]').value,
+            unidade_medida: form.querySelector('[name="unidade"]').value
+        };
+        
+        await api.criarItem(payload);
+        showToast('Item cadastrado com sucesso!', 'success');
+        form.closest('.fixed').remove();
+        if(window.mudarView) window.mudarView('estoque');
+    } catch (error) {
+        showToast('Erro: A categoria informada existe?', 'error');
+        btn.disabled = false;
+    }
 }
 
-// NOVA FUNÇÃO: Entrada e Saída de Estoque
-export function abrirMovimentacaoModal(id, tipo) {
-    const item = mockData.estoque.find(i => i.id === id);
-    if(!item) return;
+export async function deletarItem(id) {
+    if (!confirm('Tem certeza que deseja excluir este item?')) return;
+    try {
+        await api.deletarItem(id);
+        showToast('Item excluído com sucesso!', 'success');
+        if (window.mudarView) window.mudarView('estoque');
+    } catch (error) {
+        showToast('Erro ao excluir: O item já possui movimentações?', 'error');
+    }
+}
 
+export function abrirMovimentacaoModal(id_item, tipo) {
     const isEntrada = tipo === 'entrada';
-    const title = isEntrada ? 'Registrar Entrada de Estoque' : 'Registrar Saída de Estoque';
-    const maxAttr = isEntrada ? '' : `max="${item.quantidade}"`;
+    const title = isEntrada ? 'Registrar Entrada (Doação)' : 'Registrar Saída (Distribuição)';
+    const idField = isEntrada ? 'id_doacao' : 'id_distribuicao';
+    const idLabel = isEntrada ? 'ID da Doação' : 'ID da Distribuição';
 
     const content = `
-        <input type="hidden" name="itemId" value="${id}">
+        <input type="hidden" name="id_item" value="${id_item}">
         <input type="hidden" name="tipoMov" value="${tipo}">
         <div class="space-y-4 text-left">
-            <div class="p-3 bg-gray-50 rounded-lg border border-gray-100 mb-4">
-                <p class="text-sm text-gray-500">Item selecionado:</p>
-                <p class="font-bold text-gray-800">${item.nome}</p>
-                <p class="text-xs text-gray-500 mt-1">Estoque atual: ${item.quantidade} ${item.unidade}</p>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">${idLabel}</label>
+                <input type="number" name="${idField}" required min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Quantidade da ${isEntrada ? 'Entrada' : 'Saída'}</label>
-                <input type="number" required min="1" ${maxAttr} value="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
+                <input type="number" name="quantidade" required min="1" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
         </div>
     `;
     createModal(title, content, 'window.salvarMovimentacao');
 }
 
-export function salvarMovimentacao(form) {
-    const id = form.querySelector('input[name="itemId"]').value;
-    const tipo = form.querySelector('input[name="tipoMov"]').value;
-    const qtd = parseInt(form.querySelector('input[type="number"]').value);
+export async function salvarMovimentacao(form) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
 
-    const item = mockData.estoque.find(i => i.id === id);
-    if(item) {
-        if(tipo === 'entrada') {
-            item.quantidade += qtd;
+    try {
+        const id_item = parseInt(form.querySelector('[name="id_item"]').value);
+        const tipo = form.querySelector('[name="tipoMov"]').value;
+        const quantidade = parseInt(form.querySelector('[name="quantidade"]').value);
+
+        if (tipo === 'entrada') {
+            const id_doacao = parseInt(form.querySelector('[name="id_doacao"]').value);
+            await api.adicionarItemDoacao({
+                id_doacao: id_doacao,
+                id_item: id_item,
+                quantidade_utilizada: quantidade
+            });
         } else {
-            item.quantidade -= qtd;
+            const id_distribuicao = parseInt(form.querySelector('[name="id_distribuicao"]').value);
+            await api.adicionarItemDistribuicao({
+                id_distribuicao: id_distribuicao,
+                id_item: id_item,
+                quantidade_utilizada: quantidade
+            });
         }
 
-        // Atualiza os Status visualmente
-        if(item.quantidade > 10) item.status = "Em Estoque";
-        else if(item.quantidade > 0) item.status = "Baixo Estoque";
-        else item.status = "Esgotado";
-
-        showToast(`${tipo === 'entrada' ? 'Entrada' : 'Saída'} registrada com sucesso!`, 'success');
+        showToast('Movimentação registrada com sucesso!', 'success');
         form.closest('.fixed').remove();
-        if(window.carregarConteudoGlobal) window.carregarConteudoGlobal();
+        if(window.mudarView) window.mudarView('estoque');
+    } catch (error) {
+        showToast('Erro: Verifique se o ID informado (Doação/Distribuição) existe.', 'error');
+        btn.disabled = false;
     }
 }
 
@@ -272,75 +273,114 @@ export function openNovaVagaModal() {
     const content = `
         <div class="space-y-4 text-left">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Título da Vaga</label>
-                <input type="text" required placeholder="Ex: Triagem de Roupas" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <label class="block text-sm font-medium text-gray-700 mb-1">ID do Responsável (Usuário)</label>
+                <input type="number" name="id_usuario" required min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Descrição das Atividades</label>
-                <input type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Título da Vaga</label>
+                <input type="text" name="titulo" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                <input type="text" name="descricao" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Horário / Turno</label>
-                    <input type="text" required placeholder="Ex: Sábados 9h-12h" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Início</label>
+                    <input type="date" name="data_inicio" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nº de Vagas</label>
-                    <input type="number" required min="1" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Fim</label>
+                    <input type="date" name="data_fim" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Carga Horária</label>
+                    <input type="text" name="carga_horaria" placeholder="Ex: 40h" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Qtd de Vagas</label>
+                    <input type="number" name="quantidade_vagas" required min="1" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
             </div>
         </div>
     `;
-    createModal('Abrir Nova Vaga de Voluntariado', content, 'window.salvarNovaVaga');
+    createModal('Abrir Nova Vaga', content, 'window.salvarNovaVaga');
 }
 
-export function salvarNovaVaga(form) {
-    const inputs = form.querySelectorAll('input');
-    
-    const novaVaga = {
-        id: Math.floor(Math.random() * 1000),
-        titulo: inputs[0].value,
-        descricao: inputs[1].value,
-        horario: inputs[2].value,
-        vagas: parseInt(inputs[3].value),
-        inscritos: 0,
-        status: "Ativa"
-    };
-    
-    mockData.vagas.unshift(novaVaga);
-    showToast('Nova vaga criada com sucesso!', 'success');
-    form.closest('.fixed').remove();
-    if(window.carregarConteudoGlobal) window.carregarConteudoGlobal();
+export async function salvarNovaVaga(form) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
+    try {
+        const payload = {
+            id_usuario: parseInt(form.querySelector('[name="id_usuario"]').value),
+            titulo: form.querySelector('[name="titulo"]').value,
+            descricao: form.querySelector('[name="descricao"]').value,
+            data_inicio: form.querySelector('[name="data_inicio"]').value,
+            data_fim: form.querySelector('[name="data_fim"]').value,
+            carga_horaria: form.querySelector('[name="carga_horaria"]').value,
+            quantidade_vagas: parseInt(form.querySelector('[name="quantidade_vagas"]').value)
+        };
+        
+        await api.criarVagaVoluntariado(payload);
+        showToast('Nova vaga criada com sucesso!', 'success');
+        form.closest('.fixed').remove();
+        if(window.mudarView) window.mudarView('voluntarios');
+    } catch (error) {
+        showToast('Erro ao criar vaga.', 'error');
+        btn.disabled = false;
+    }
 }
 
-// NOVA FUNÇÃO: Ver Lista de Inscritos
-export function verInscritosModal(id) {
-    const vaga = mockData.vagas.find(v => v.id === id);
-    if(!vaga) return;
+export async function deletarVaga(id) {
+    if (!confirm('Tem certeza que deseja excluir esta vaga?')) return;
+    try {
+        await api.deletarVagaVoluntariado(id);
+        showToast('Vaga excluída com sucesso!', 'success');
+        if (window.mudarView) window.mudarView('voluntarios');
+    } catch (error) {
+        showToast('Erro ao excluir: a vaga possui inscritos?', 'error');
+    }
+}
 
-    const nomesFake = ["Ana Clara", "João Pedro", "Maria Silva", "Carlos Eduardo", "Beatriz Costa", "Lucas Mendes"];
-    
-    const inscritosHtml = Array.from({length: vaga.inscritos}).map((_, i) => `
-        <div class="flex items-center gap-3 p-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors cursor-default">
-            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs uppercase">
-                ${nomesFake[i % nomesFake.length].charAt(0)}
-            </div>
-            <div>
-                <p class="text-sm font-bold text-gray-800">${nomesFake[i % nomesFake.length]}</p>
-                <p class="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Voluntário Registado</p>
-            </div>
-        </div>
-    `).join('');
+export async function verInscritosModal(id_vaga) {
+    try {
+        const [inscricoes, usuarios] = await Promise.all([
+            api.getInscricoes(),
+            api.getUsuarios()
+        ]);
 
-    const content = `
-        <div class="text-left">
-            <p class="text-sm text-gray-500 mb-4">Vaga: <span class="font-bold text-gray-800">${vaga.titulo}</span></p>
-            <div class="border border-gray-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
-                ${vaga.inscritos > 0 ? inscritosHtml : '<div class="p-8 text-center text-gray-500"><i data-lucide="users" class="w-8 h-8 mx-auto mb-2 text-gray-400"></i><p class="text-sm font-medium">Nenhum inscrito até o momento.</p></div>'}
+        const inscritos = inscricoes.filter(i => i.id_vaga === id_vaga);
+        
+        const inscritosHtml = inscritos.map(i => {
+            const usuario = usuarios.find(u => u.id === i.id_usuario);
+            const nome = usuario ? usuario.nome : `ID #${i.id_usuario}`;
+            return `
+                <div class="flex items-center gap-3 p-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs uppercase">
+                        ${nome.charAt(0)}
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-800">${nome}</p>
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Status: ${i.status}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const content = `
+            <div class="text-left">
+                <div class="border border-gray-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
+                    ${inscritos.length > 0 ? inscritosHtml : '<div class="p-8 text-center text-gray-500"><p class="text-sm font-medium">Nenhum inscrito até o momento.</p></div>'}
+                </div>
             </div>
-        </div>
-    `;
-    createViewModal(`Inscritos (${vaga.inscritos}/${vaga.vagas})`, content);
+        `;
+        createViewModal(`Inscritos na Vaga #${id_vaga}`, content);
+    } catch (error) {
+        showToast('Erro ao carregar os inscritos', 'error');
+    }
 }
 
 // === PEDIDOS DE AUXÍLIO ===
@@ -348,82 +388,181 @@ export function openNovoPedidoModal() {
     const content = `
         <div class="space-y-4 text-left">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Beneficiário / Família</label>
-                <input type="text" required placeholder="Ex: Família Souza" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Necessidade</label>
-                    <select required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                        <option value="Cesta Básica">Cesta Básica</option>
-                        <option value="Roupas">Roupas</option>
-                        <option value="Kit Higiene">Kit Higiene</option>
-                        <option value="Outros">Outros</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
-                    <select required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                        <option value="Alta">Alta (Urgente)</option>
-                        <option value="Média">Média</option>
-                        <option value="Baixa">Baixa</option>
-                    </select>
-                </div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ID do Beneficiário (Usuário)</label>
+                <input type="number" name="id_usuario" required min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Telefone / Contato</label>
-                <input type="text" required placeholder="(00) 00000-0000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Itens Específicos (Separados por vírgula)</label>
-                <input type="text" required placeholder="Ex: Arroz, Feijão, Fralda G" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Justificativa / Necessidade</label>
+                <textarea name="justificativa" required rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
             </div>
         </div>
     `;
-    createModal('Registrar Novo Pedido de Auxílio', content, 'window.salvarNovoPedido');
+    createModal('Registrar Pedido de Auxílio', content, 'window.salvarNovoPedido');
 }
 
-export function salvarNovoPedido(form) {
-    const inputs = form.querySelectorAll('input');
-    const selects = form.querySelectorAll('select');
-    
-    const itensTexto = inputs[2].value;
-    const itensArray = itensTexto.split(',').map(item => item.trim()).filter(item => item !== "");
+export async function salvarNovoPedido(form) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
 
-    const novoPedido = {
-        id: "PED-" + Math.floor(Math.random() * 1000).toString().padStart(3, '0'),
-        beneficiario: inputs[0].value,
-        tipo: selects[0].value,
-        prioridade: selects[1].value,
-        dataSolicitacao: new Date().toISOString().split('T')[0],
-        itensNecessarios: itensArray.length > 0 ? itensArray : ["Cesta Padrão"],
-        status: "Pendente",
-        contato: inputs[1].value,
-        endereco: "Endereço cadastrado"
-    };
-    
-    mockData.pedidos.unshift(novoPedido);
-    showToast('Novo pedido registrado com sucesso!', 'success');
-    form.closest('.fixed').remove();
-    if(window.carregarConteudoGlobal) window.carregarConteudoGlobal();
-}
-
-export function aprovarPedido(id) {
-    const pedido = mockData.pedidos.find(p => p.id === id);
-    if(pedido) {
-        pedido.status = "Aprovado";
-        showToast('Pedido aprovado com sucesso!', 'success');
-        if(window.carregarConteudoGlobal) window.carregarConteudoGlobal();
+    try {
+        const payload = {
+            id_usuario: parseInt(form.querySelector('[name="id_usuario"]').value),
+            justificativa: form.querySelector('[name="justificativa"]').value,
+            data_pedido: new Date().toISOString().split('T')[0],
+            status: "Pendente"
+        };
+        
+        await api.criarPedidoAuxilio(payload);
+        showToast('Pedido registrado com sucesso!', 'success');
+        form.closest('.fixed').remove();
+        if(window.mudarView) window.mudarView('pedidos');
+    } catch (error) {
+        showToast('Erro: Verifique o ID do usuário.', 'error');
+        btn.disabled = false;
     }
 }
 
-export function distribuirPedido(id) {
-    const pedido = mockData.pedidos.find(p => p.id === id);
-    if(pedido) {
-        pedido.status = "Entregue";
-        showToast('Pedido marcado como entregue!', 'success');
-        if(window.carregarConteudoGlobal) window.carregarConteudoGlobal();
+export async function atualizarStatusPedido(id, novoStatus) {
+    try {
+        const pedido = await api.getPedidoAuxilio(id);
+        pedido.status = novoStatus;
+        await api.atualizarPedidoAuxilio(id, pedido);
+        showToast(`Pedido marcado como ${novoStatus}!`, 'success');
+        if(window.mudarView) window.mudarView('pedidos');
+    } catch (error) {
+        showToast('Erro ao atualizar status do pedido.', 'error');
     }
 }
 
-export function openDistribuirModal() { }
+export async function deletarPedido(id) {
+    if (!confirm('Tem certeza que deseja excluir este pedido?')) return;
+    try {
+        await api.deletarPedidoAuxilio(id);
+        showToast('Pedido excluído com sucesso!', 'success');
+        if (window.mudarView) window.mudarView('pedidos');
+    } catch (error) {
+        showToast('Erro ao excluir pedido.', 'error');
+    }
+}
+
+export function distribuirPedido(id_pedido) {
+    const content = `
+        <input type="hidden" name="id_pedido" value="${id_pedido}">
+        <div class="space-y-4 text-left">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Data da Distribuição</label>
+                <input type="date" name="data_dist" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <p class="text-xs text-gray-500">Isto criará o registo de distribuição. Após criar, vá ao Estoque para dar a saída nos itens associando ao ID gerado.</p>
+        </div>
+    `;
+    createModal('Iniciar Distribuição', content, 'window.salvarDistribuicao');
+}
+
+export async function salvarDistribuicao(form) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
+    try {
+        const id_pedido = parseInt(form.querySelector('[name="id_pedido"]').value);
+        const data_dist = form.querySelector('[name="data_dist"]').value;
+
+        const payload = {
+            id_pedido_auxilio: id_pedido,
+            status: "Em separação",
+            data_distribuicao: data_dist
+        };
+        
+        await api.registrarDistribuicao(payload);
+        
+        // Atualiza status do pedido para "Atendido"
+        await atualizarStatusPedido(id_pedido, "Atendido");
+
+        showToast('Distribuição iniciada com sucesso!', 'success');
+        form.closest('.fixed').remove();
+    } catch (error) {
+        showToast('Erro ao criar distribuição.', 'error');
+        btn.disabled = false;
+    }
+}
+
+// === USUÁRIOS ===
+export function openNovoUsuarioModal() {
+    const content = `
+        <div class="space-y-4 text-left">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                <input type="text" name="nome" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                <input type="email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Login (Username)</label>
+                    <input type="text" name="login" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                    <input type="password" name="senha" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+            </div>
+        </div>
+    `;
+    createModal('Cadastrar Novo Usuário', content, 'window.salvarNovoUsuario');
+}
+
+export async function salvarNovoUsuario(form) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
+    try {
+        const payload = {
+            nome: form.querySelector('[name="nome"]').value,
+            email: form.querySelector('[name="email"]').value,
+            login: form.querySelector('[name="login"]').value,
+            senha: form.querySelector('[name="senha"]').value
+        };
+        
+        await api.criarUsuario(payload);
+        showToast('Usuário cadastrado com sucesso!', 'success');
+        form.closest('.fixed').remove();
+        if(window.mudarView) window.mudarView('usuarios');
+    } catch (error) {
+        showToast('Erro ao cadastrar usuário.', 'error');
+        btn.disabled = false;
+    }
+}
+
+export async function deletarUsuario(id) {
+    if (!confirm('Tem certeza que deseja excluir este usuário? (O banco impedirá se ele possuir doações/pedidos vinculados)')) return;
+    try {
+        await api.deletarUsuario(id);
+        showToast('Usuário excluído com sucesso!', 'success');
+        if (window.mudarView) window.mudarView('usuarios');
+    } catch (error) {
+        showToast('Erro ao excluir: o usuário possui registros associados (doações/pedidos).', 'error');
+    }
+}
+
+// Globalizar funções para que possam ser chamadas no onclick (HTML inserido dinamicamente)
+window.salvarNovaDoacao = salvarNovaDoacao;
+window.deletarDoacao = deletarDoacao;
+window.salvarNovoBeneficiario = salvarNovoBeneficiario;
+window.deletarBeneficiario = deletarBeneficiario;
+window.salvarNovoItem = salvarNovoItem;
+window.deletarItem = deletarItem;
+window.abrirMovimentacaoModal = abrirMovimentacaoModal;
+window.salvarMovimentacao = salvarMovimentacao;
+window.salvarNovaVaga = salvarNovaVaga;
+window.deletarVaga = deletarVaga;
+window.verInscritosModal = verInscritosModal;
+window.salvarNovoPedido = salvarNovoPedido;
+window.atualizarStatusPedido = atualizarStatusPedido;
+window.deletarPedido = deletarPedido;
+window.distribuirPedido = distribuirPedido;
+window.salvarDistribuicao = salvarDistribuicao;
+window.openNovoUsuarioModal = openNovoUsuarioModal;
+window.salvarNovoUsuario = salvarNovoUsuario;
+window.deletarUsuario = deletarUsuario;
